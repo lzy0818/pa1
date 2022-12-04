@@ -1,0 +1,277 @@
+---
+title: "proj2"
+author: "Cheryl Liu"
+date: "11/30/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(caret)
+```
+
+## Load the data
+
+```{r}
+book <- read.csv("bookall.csv")
+```
+
+```{r}
+book_train <- book[which(book$train == 1),-which(names(book) == 'id')]
+book_test <- book[which(book$train == 0),-which(names(book) == 'id')]
+```
+
+## Logistic Regression
+```{r}
+book_train <- book_train[,-which(names(book_train) == 'train')]
+book_train
+```
+
+```{r}
+library(comprehenr)
+book_train$buy <- to_vec(for(i in book_train$target) if(i >0) 1 else 0)
+```
+
+```{r}
+book_test$buy <- to_vec(for(i in book_test$target) if(i >0) 1 else 0)
+```
+
+## Imbalance of data:
+
+For frequency of items from some category number (f1, f3 ,f5) in the
+past, there also exists some imbalance.
+
+
+```{r}
+table(book_train$f1)/length(book_train$f1)
+```
+
+```{r}
+table(book_train$f3)/length(book_train$f3)
+```
+
+
+```{r}
+table(book_train$f5)/length(book_train$f5)
+```
+
+
+```{r}
+table(book_train$f6)/length(book_train$f6)
+```
+
+```{r}
+table(book_train$f7)/length(book_train$f7)
+```
+
+```{r}
+table(book_train$f8)/length(book_train$f8)
+```
+
+```{r}
+table(book_train$f9)/length(book_train$f9)
+```
+
+```{r}
+table(book_train$f10)/length(book_train$f10)
+```
+There exists imbalance for buyers and non-buyers in the dataset.
+```{r}
+table(book_train$buy)/length(book_train$buy)
+```
+
+Question: Does oversampling buyers improve the model performance on the test set?
+
+---------------NEED TO IMPLEMENT-------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Full Model
+
+We exclude target for the logistic regression part, since buy is derived from target column with condition: target > 0 then buy = 1; target =0 then buy = 1.
+
+```{r}
+names(book_train)
+```
+
+
+```{r}
+book_train = book_train[ , -which(names(book_train) %in% c("f12","f14", "f17" ,  "f19"  , "f20" , "f21" , "f22"  ,  "f23" , "f26" , "f27" ,  "f30"  ,"f31", "f35"  ,  "f36"   , "f37"   , "f38"  ,  "f39"   , "f40" ,"m30"   , "m31"  ,  "m35"  ,  "m36"   , "m37"  ,  "m38"  ,  "m39" ,   "m40" ,   "m41",    "m44"   , "m50"   , "m99" ,"target" ))]
+full.model = glm(buy ~ ., binomial(link = "logit"), book_train)
+summary(full.model)
+```
+Wald Test:
+
+H0: all coefficients are equal to zero.
+H1: there's at least one coefficient not equal to zero.
+Since 2935.6 - 2642.1 > (chi-square stat with df = 35), we reject the null.
+
+Some predictors in the above model are not significant. 
+
+```{r}
+plot(full.model, which = 1, pch = 16, cex = .5)
+```
+There might be heteroscedasticity (variances are not constant). We need transformation on the response variable.
+
+#### Log transformation on fitem
+```{r}
+hist(book_train$fitem, xlab = "fitem", main = "Histogram of fitem")
+```
+
+```{r}
+book_train$logfitem = log(book_train$fitem + 1)
+hist(book_train$logfitem, xlab = "log(fitem)", main = "Histogram of log(fitem)")
+```
+The distribution is improved.
+
+
+#### Log transformation on ford
+```{r}
+hist(book_train$ford, xlab = "ford", main = "Histogram of ford")
+```
+
+```{r}
+book_train$logford = log(book_train$ford + 1)
+hist(book_train$logford, xlab = "log(ford)", main = "Histogram of log(ford)")
+```
+
+The distribution is improved, but is still slightly skewed to the right.
+
+#### Log transformation on r
+```{r}
+hist(book_train$r, xlab = "r", main = "Histogram of r")
+```
+
+
+```{r}
+book_train$logr = log(book_train$r + 1)
+hist(book_train$logr, xlab = "log(r)", main = "Histogram of log(r)")
+```
+The distribution is improved, but is still slightly skewed to the left.
+
+
+
+
+
+#### Log transformation on m
+
+```{r}
+hist(book_train$m, xlab = "m", main = "Histogram of m")
+```
+
+
+```{r}
+book_train$logm = log(book_train$m + 1)
+hist(book_train$logm, xlab = "log(m)", main = "Histogram of log(m)")
+```
+The distribution is improved.
+
+Transform the testing dataset.
+```{r}
+book_test$logm = log(book_test$m + 1)
+book_test$logr = log(book_test$r + 1)
+book_test$logford = log(book_test$ford + 1)
+book_test$logfitem = log(book_test$fitem + 1)
+```
+
+
+## Model after transformation on r, fitem, ford, and m
+```{r}
+names(book_train)
+```
+
+
+```{r}
+full.model.transform = glm(buy ~ . - r - fitem - ford - m, binomial(link = "logit"), book_train)
+summary(full.model)
+```
+```{r}
+plot(full.model.transform, which = 1, pch = 16, cex = .5)
+```
+
+
+
+
+
+
+## Stepwise Model
+
+Both Direction
+```{r}
+#perform both direction stepwise regression
+backward.both <- step(full.model.transform, direction='both', scope=formula(full.model), trace=0)
+#view results of backward stepwise regression
+backward.both$anova
+```
+
+
+```{r}
+#view final model
+backward.both$coefficients
+```
+
+
+```{r}
+summary(backward.both)
+```
+
+```{r}
+# estimated probabilities
+phat = predict(backward.both, newdata = book_train, type = "response")
+```
+
+```{r}
+# estimated class
+yhat = ifelse(phat >= 0.5, 1, 0)
+table(yhat)
+```
+
+```{r}
+vif(backward.both)
+```
+
+
+```{r}
+# evaluation
+yhat_train_log_step = predict(backward.both, book_train)
+yhat_test_log_step = predict(backward.both, book_test)
+res_log_step = getMSE(y_train = book_train$buy, ypred_train = yhat_train_log_step, 
+                       y_test = book_test$buy, ypred_test = yhat_test_log_step)
+res_log_step
+```
+
+
+## Ridge model
+```{r}
+fit_log_ridge = glmnet(x[train,], book_train$buy, alpha = 0)
+
+# ridge trace
+plot(fit_log_ridge, xvar = "lambda")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
