@@ -37,6 +37,8 @@ book_train$buy <- to_vec(for(i in book_train$target) if(i >0) 1 else 0)
 book_test$buy <- to_vec(for(i in book_test$target) if(i >0) 1 else 0)
 ```
 
+
+
 ## Imbalance of data:
 
 For frequency of items from some category number (f1, f3 ,f5) in the
@@ -124,6 +126,10 @@ plot(full.model, which = 1, pch = 16, cex = .5)
 ```
 There might be heteroscedasticity (variances are not constant). We need transformation on the response variable.
 
+
+
+
+
 #### Log transformation on fitem
 ```{r}
 hist(book_train$fitem, xlab = "fitem", main = "Histogram of fitem")
@@ -191,10 +197,15 @@ book_test$logfitem = log(book_test$fitem + 1)
 names(book_train)
 ```
 
+```{r}
+book_train
+```
+
+####Question: select automatically??
 
 ```{r}
 full.model.transform = glm(buy ~ . - r - fitem - ford - m, binomial(link = "logit"), book_train)
-summary(full.model)
+summary(full.model.transform)
 ```
 ```{r}
 plot(full.model.transform, which = 1, pch = 16, cex = .5)
@@ -210,7 +221,7 @@ plot(full.model.transform, which = 1, pch = 16, cex = .5)
 Both Direction
 ```{r}
 #perform both direction stepwise regression
-backward.both <- step(full.model.transform, direction='both', scope=formula(full.model), trace=0)
+backward.both <- step(full.model.transform, direction='both', scope=formula(full.model.transform), trace=0)
 #view results of backward stepwise regression
 backward.both$anova
 ```
@@ -232,12 +243,27 @@ phat = predict(backward.both, newdata = book_train, type = "response")
 ```
 
 ```{r}
+#phat
+```
+
+
+
+
+# ROC tuning???
+
+```{r}
 # estimated class
 yhat = ifelse(phat >= 0.5, 1, 0)
 table(yhat)
 ```
 
+
+
+
+
+
 ```{r}
+library()
 vif(backward.both)
 ```
 
